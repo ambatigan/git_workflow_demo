@@ -1,0 +1,164 @@
+
+
+
+
+
+
+
+
+
+
+*** Without setting up any cloning of repository, can know the list of the branches and tags of a particular repo using git ls-remote:
+root@devops-node-04:/tmp# git ls-remote https://git-codecommit.us-east-1.amazonaws.com/v1/repos/git_workflow_demo
+Username for 'https://git-codecommit.us-east-1.amazonaws.com': gambati-at-408250884116
+Password for 'https://gambati-at-408250884116@git-codecommit.us-east-1.amazonaws.com':
+f807bc6533320feabdc1643f4b8064560d09e80c        HEAD
+ee07acae85418b6b63e3b64f43b14b6ddcfad8fb        refs/heads/development
+bfa47a27b68376412e7d7785cc5717b790b42b5f        refs/heads/hotfix_prod_v0.0.1_sample_proj
+f807bc6533320feabdc1643f4b8064560d09e80c        refs/heads/master
+baa5743288b6c0ea355c34eb65b6acb64d0462ae        refs/tags/prod_v0.0.1_sample_proj
+baa5743288b6c0ea355c34eb65b6acb64d0462ae        refs/tags/qa_v0.0.1_sample_proj
+root@devops-node-04:/tmp#
+
+*** Configure git credentials using credential helper; also for multiple regions based repositories:
+(Refer: https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-https-unixes.html)
+Run - git config --global credential.helper '!aws codecommit credential-helper --profile gambati $@'
+
+We will see, the following text in the ~/.gitconfig (this file will be generated because of the above command)
+[credential]    
+    helper = !aws codecommit credential-helper --profile=gambati $@ 
+    UseHttpPath = true
+
+But to accommodate the multipe region based repos, we need to modify the .gitconfig like the following -
+root@devops-node-04:/tmp# cat ~/.gitconfig
+[credential "https://git-codecommit.us-east-2.amazonaws.com"]
+        helper = !aws codecommit credential-helper $@
+        UseHttpPath = true
+
+[credential "https://git-codecommit.us-east-1.amazonaws.com"]
+        helper = !aws codecommit credential-helper --profile gambati $@
+        UseHttpPath = true
+
+For the benifit of understanding the mutiple aws profiles, showing the aws config and crendentials files content here -
+root@devops-node-04:/tmp# cat ~/.aws/config
+[default]
+output = json
+region = us-east-2
+
+[profile gambati]
+output = json
+region = us-east-1
+root@devops-node-04:/tmp# cat ~/.aws/credentials
+[default]
+aws_access_key_id = <key_id>
+aws_secret_access_key = <access_key>
+
+[gambati]
+aws_access_key_id = <key_id>
+aws_secret_access_key = <access_key>
+root@devops-node-04:/tmp#	
+
+After the above successful configurations, we can test -
+
+root@devops-node-04:/tmp# git ls-remote https://git-codecommit.us-east-1.amazonaws.com/v1/repos/git_workflow_demo
+f807bc6533320feabdc1643f4b8064560d09e80c        HEAD
+ee07acae85418b6b63e3b64f43b14b6ddcfad8fb        refs/heads/development
+bfa47a27b68376412e7d7785cc5717b790b42b5f        refs/heads/hotfix_prod_v0.0.1_sample_proj
+f807bc6533320feabdc1643f4b8064560d09e80c        refs/heads/master
+baa5743288b6c0ea355c34eb65b6acb64d0462ae        refs/tags/prod_v0.0.1_sample_proj
+baa5743288b6c0ea355c34eb65b6acb64d0462ae        refs/tags/qa_v0.0.1_sample_proj
+root@devops-node-04:/tmp# git ls-remote https://git-codecommit.us-east-2.amazonaws.com/v1/repos/devops
+a05c5fad56492dee365d851eb585b29a13f0d481        HEAD
+a05c5fad56492dee365d851eb585b29a13f0d481        refs/heads/master
+
+The above commands will not ask for any username/password
+
+
+
+
+
+
+
+*** To change the name and/or email address recorded in existing commits, you must rewrite the entire history of your Git repository.
+(Courtesy: https://help.github.com/articles/changing-author-info/ )
+
+root@devops-node-04:~# git clone --bare https://github.com/ambatigan/git_workflow_demo.git
+Cloning into bare repository 'git_workflow_demo.git'...
+remote: Counting objects: 15, done.
+remote: Compressing objects: 100% (6/6), done.
+remote: Total 15 (delta 0), reused 15 (delta 0), pack-reused 0
+Unpacking objects: 100% (15/15), done.
+Checking connectivity... done.
+root@devops-node-04:~# ls -lrt
+total 24364
+-rwxr-xr-x 1 root root 24943328 Sep  8 16:53 scollector
+drwxr-xr-x 7 root root     4096 Sep 19 16:47 git_workflow_demo.git
+root@devops-node-04:~# cd git_workflow_demo.git/
+root@devops-node-04:~/git_workflow_demo.git# git log
+commit 92aca180b76626af61771ba533cfd419b6f5f0b9
+Author: ganga <gangadhar.ambati@kaviglobal.com>
+Date:   Wed Sep 19 14:02:11 2018 +0530
+
+    importing the demo project and build script....
+
+commit c2eb699a0f31f84008411ef2a08ef487652d6df5
+Author: ganga <gangadhar.ambati@kaviglobal.com>
+Date:   Wed Sep 19 13:55:48 2018 +0530
+
+    first commit, the README file...
+root@devops-node-04:~/git_workflow_demo.git# #!/bin/sh
+root@devops-node-04:~/git_workflow_demo.git#
+root@devops-node-04:~/git_workflow_demo.git# git filter-branch --env-filter '
+>
+> OLD_EMAIL="gangadhar.ambati@kaviglobal.com"
+> CORRECT_NAME="ambatigan"
+> CORRECT_EMAIL="gangadhar.ambati@saven.in"
+>
+> if [ "$GIT_COMMITTER_EMAIL" = "$OLD_EMAIL" ]
+> then
+>     export GIT_COMMITTER_NAME="$CORRECT_NAME"
+>     export GIT_COMMITTER_EMAIL="$CORRECT_EMAIL"
+> fi
+> if [ "$GIT_AUTHOR_EMAIL" = "$OLD_EMAIL" ]
+> then
+>     export GIT_AUTHOR_NAME="$CORRECT_NAME"
+>     export GIT_AUTHOR_EMAIL="$CORRECT_EMAIL"
+> fi
+> ' --tag-name-filter cat -- --branches --tags
+Rewrite 92aca180b76626af61771ba533cfd419b6f5f0b9 (2/2) (0 seconds passed, remaining 0 predicted)
+Ref 'refs/heads/master' was rewritten
+root@devops-node-04:~/git_workflow_demo.git# git log
+commit 1469a39657158990bb72c9db6c70c6b7aa95461f
+Author: ambatigan <gangadhar.ambati@saven.in>
+Date:   Wed Sep 19 14:02:11 2018 +0530
+
+    importing the demo project and build script....
+
+commit 4acfac4e1baa1320dd3a7a6eec4db41473274a5f
+Author: ambatigan <gangadhar.ambati@saven.in>
+Date:   Wed Sep 19 13:55:48 2018 +0530
+
+    first commit, the README file...
+root@devops-node-04:~/git_workflow_demo.git# git push --force --tags origin 'refs/heads/*'
+Password for 'https://ambatigan@github.com':
+Counting objects: 15, done.
+Delta compression using up to 4 threads.
+Compressing objects: 100% (6/6), done.
+Writing objects: 100% (15/15), 1.39 KiB | 0 bytes/s, done.
+Total 15 (delta 0), reused 0 (delta 0)
+To https://github.com/ambatigan/git_workflow_demo.git
+ + 92aca18...1469a39 master -> master (forced update)
+root@devops-node-04:~/git_workflow_demo.git# cd ..
+root@devops-node-04:~# rm -rf git_workflow_demo.git/
+root@devops-node-04:~#
+
+
+
+*** Using --amend for the Very Last Commit
+In case you want to change just the very last commit, Git offers a very easy way to do this:
+
+git commit --amend --author="John Doe <john@doe.org>"
+This effectively replaces the last commit with your "edited" version, correcting the wrong author information.	
+
+
+
